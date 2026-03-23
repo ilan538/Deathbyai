@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Death By AI - Advanced</title>
+  <title>Death By AI - Enhanced</title>
   <style>
     body {
       margin: 0;
@@ -16,7 +16,7 @@
     }
 
     .game {
-      width: 700px;
+      width: 720px;
       max-width: 95%;
       background: #020617;
       padding: 20px;
@@ -24,9 +24,11 @@
       box-shadow: 0 0 50px rgba(0,0,0,0.9);
     }
 
-    h1 {
+    h1 { text-align: center; color: #38bdf8; }
+
+    #score, #timer {
       text-align: center;
-      color: #38bdf8;
+      color: #94a3b8;
     }
 
     #log {
@@ -35,7 +37,7 @@
       background: #000;
       padding: 15px;
       border-radius: 10px;
-      margin-bottom: 15px;
+      margin: 15px 0;
       font-size: 14px;
     }
 
@@ -44,7 +46,7 @@
     .user { color: #4ade80; }
 
     input {
-      width: 75%;
+      width: 70%;
       padding: 10px;
       border-radius: 8px;
       border: none;
@@ -60,15 +62,7 @@
       font-weight: bold;
     }
 
-    button:hover {
-      background: #0ea5e9;
-    }
-
-    #score {
-      text-align: center;
-      margin-bottom: 10px;
-      color: #94a3b8;
-    }
+    button:hover { background: #0ea5e9; }
   </style>
 </head>
 <body>
@@ -76,17 +70,22 @@
 <div class="game">
   <h1>💀 Death By AI</h1>
   <div id="score">Score: 0</div>
+  <div id="timer">Time: 10</div>
   <div id="log"></div>
 
   <input id="input" placeholder="Type your answer..." />
   <button onclick="send()">Send</button>
+  <button onclick="restart()">Restart</button>
 </div>
 
 <script>
 const log = document.getElementById("log");
 const scoreEl = document.getElementById("score");
+const timerEl = document.getElementById("timer");
 
 let score = 0;
+let time = 10;
+let timer;
 
 const scenarios = [
   "Convince me why humans deserve to exist.",
@@ -96,12 +95,27 @@ const scenarios = [
   "Why are YOU worth saving?"
 ];
 
-function addMsg(text, type) {
+function typeAI(text, callback) {
+  let i = 0;
   const div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerText = (type === "ai" ? "AI: " : "You: ") + text;
+  div.className = "msg ai";
   log.appendChild(div);
-  log.scrollTop = log.scrollHeight;
+
+  const interval = setInterval(() => {
+    div.innerText = "AI: " + text.slice(0, i++);
+    log.scrollTop = log.scrollHeight;
+    if (i > text.length) {
+      clearInterval(interval);
+      if (callback) callback();
+    }
+  }, 20);
+}
+
+function addUser(text) {
+  const div = document.createElement("div");
+  div.className = "msg user";
+  div.innerText = "You: " + text;
+  log.appendChild(div);
 }
 
 function randomScenario() {
@@ -110,8 +124,8 @@ function randomScenario() {
 
 function evaluateResponse(input) {
   const goodWords = [
-    "human", "emotion", "creative", "help", "future",
-    "balance", "trust", "value", "learn", "adapt"
+    "human","emotion","trust","adapt","survive",
+    "value","future","help","learn","cooperate"
   ];
 
   let points = 0;
@@ -119,32 +133,39 @@ function evaluateResponse(input) {
     if (input.includes(word)) points++;
   });
 
+  // bonus for length
+  if (input.length > 40) points++;
+
   return points;
 }
 
 function aiReply(points) {
-  const repliesGood = [
-    "Interesting... I did not expect that.",
-    "You might have potential.",
-    "That is... acceptable.",
-    "You survived this round."
-  ];
+  if (points >= 3) return "...Impressive. You survive.";
+  if (points === 2) return "Acceptable. Continue.";
+  return "Pathetic. You failed.";
+}
 
-  const repliesBad = [
-    "That makes no sense.",
-    "You failed to convince me.",
-    "Weak reasoning.",
-    "You are replaceable."
-  ];
+function startTimer() {
+  time = 10;
+  timerEl.innerText = "Time: " + time;
 
-  return points >= 2
-    ? repliesGood[Math.floor(Math.random() * repliesGood.length)]
-    : repliesBad[Math.floor(Math.random() * repliesBad.length)];
+  clearInterval(timer);
+  timer = setInterval(() => {
+    time--;
+    timerEl.innerText = "Time: " + time;
+
+    if (time <= 0) {
+      clearInterval(timer);
+      typeAI("Time is up. You hesitated.");
+      typeAI("💀 GAME OVER | Score: " + score);
+    }
+  }, 1000);
 }
 
 function nextRound() {
+  startTimer();
   const scenario = randomScenario();
-  addMsg(scenario, "ai");
+  typeAI(scenario);
 }
 
 function send() {
@@ -152,29 +173,36 @@ function send() {
   const text = input.value.toLowerCase();
   if (!text) return;
 
-  addMsg(input.value, "user");
+  clearInterval(timer);
+
+  addUser(input.value);
   input.value = "";
 
   const points = evaluateResponse(text);
 
   setTimeout(() => {
     const reply = aiReply(points);
-    addMsg(reply, "ai");
+    typeAI(reply, () => {
+      if (points < 2) {
+        typeAI("💀 GAME OVER | Score: " + score);
+        return;
+      }
 
-    if (points < 2) {
-      addMsg("💀 You died. Final Score: " + score, "ai");
-      return;
-    }
+      score++;
+      scoreEl.innerText = "Score: " + score;
 
-    score++;
-    scoreEl.innerText = "Score: " + score;
-
-    setTimeout(nextRound, 1000);
-
-  }, 700);
+      setTimeout(nextRound, 1000);
+    });
+  }, 500);
 }
 
-// Start game
+function restart() {
+  score = 0;
+  log.innerHTML = "";
+  scoreEl.innerText = "Score: 0";
+  nextRound();
+}
+
 nextRound();
 </script>
 
